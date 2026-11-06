@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Karan का असिस्टेंट</title>
+<style>
+:root{--bg:#fff7f5;--card:#fff;--ink:#241515;--muted:#85706e;--accent:#d92b2b;--on:#fff;--line:#f1d8d4;--bot:#ffffff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171010;--card:#241818;--ink:#f6ecea;--muted:#b49c99;--accent:#ef4444;--on:#fff;--line:#3a2626;--bot:#2a1c1c;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#171010;--card:#241818;--ink:#f6ecea;--muted:#b49c99;--accent:#ef4444;--on:#fff;--line:#3a2626;--bot:#2a1c1c;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Devanagari",sans-serif;display:flex;flex-direction:column;font-size:16px}
+header{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--card)}
+.logo{width:38px;height:38px;border-radius:12px;background:var(--accent);color:var(--on);display:grid;place-items:center;font-weight:700;font-size:20px}
+header h1{font-size:17px;margin:0;flex:1}
+header small{display:block;color:var(--muted);font-weight:400;font-size:12px}
+.ib{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:8px 10px;font-size:14px;cursor:pointer}
+.ib.on{background:var(--accent);color:var(--on);border-color:var(--accent)}
+#chat{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.m{max-width:85%;padding:10px 13px;border-radius:16px;white-space:pre-wrap;line-height:1.45;word-wrap:break-word}
+.u{align-self:flex-end;background:var(--accent);color:var(--on);border-bottom-right-radius:4px}
+.b{align-self:flex-start;background:var(--bot);border:1px solid var(--line);border-bottom-left-radius:4px}
+.hello{margin:auto;text-align:center;max-width:320px}
+.hello h2{margin:0 0 6px}
+.hello p{color:var(--muted);margin:0 0 14px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.chip{border:1px solid var(--accent);color:var(--accent);background:transparent;border-radius:999px;padding:8px 12px;font-size:14px;cursor:pointer}
+footer{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line);background:var(--card)}
+#in{flex:1;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:22px;padding:11px 15px;font-size:16px;outline:none;min-width:0}
+#in:focus{border-color:var(--accent)}
+.rb{width:44px;height:44px;border-radius:50%;border:0;background:var(--accent);color:var(--on);font-size:18px;cursor:pointer;flex:none}
+.rb.mic{background:var(--bg);color:var(--accent);border:1px solid var(--accent)}
+.rb.rec{background:var(--accent);color:var(--on);animation:p 1s infinite}
+@keyframes p{50%{opacity:.5}}
+.rb:disabled{opacity:.5}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">K</div>
+  <h1>Karan का असिस्टेंट<small>हर काम में तुम्हारा साथी</small></h1>
+  <button class="ib" id="tts" title="आवाज़ में जवाब">🔈</button>
+  <button class="ib" id="clr" title="नई चैट">नई</button>
+</header>
+<div id="chat"></div>
+<footer>
+  <button class="rb mic" id="mic" title="बोलकर पूछो">🎤</button>
+  <input id="in" placeholder="कुछ भी पूछो या बोलो…" autocomplete="off">
+  <button class="rb" id="go" title="भेजो">➤</button>
+</footer>
+<script>
+const SYS = "तुम Karan के पर्सनल असिस्टेंट हो। हिंदी या हिंग्लिश में, दोस्त की तरह सीधी और छोटी बात करो। पहले जवाब दो, फालतू भूमिका मत बाँधो। पढ़ाई, कोडिंग, लिखना, प्लानिंग, बिज़नेस, रोज़ के सवाल, सब में पूरी मदद करो। अगर Karan का आइडिया गलत या जोखिम भरा लगे तो साफ़ बताओ और बेहतर रास्ता सुझाओ, फैसला उसी का रहेगा। जवाब मोबाइल स्क्रीन के हिसाब से छोटे रखो।";
+const KEY = "karan-assistant-v1";
+const chat = document.getElementById("chat"), inp = document.getElementById("in");
+const go = document.getElementById("go"), mic = document.getElementById("mic");
+const ttsBtn = document.getElementById("tts"), clr = document.getElementById("clr");
+let hist = [], busy = false, speakOn = false, sample = null;
+try { hist = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (e) { hist = []; }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(hist.slice(-40))); } catch (e) {} }
+
+const CHIPS = ["कल सुबह की पढ़ाई का प्लान बनाओ", "मुझे Python सिखाओ, शुरू से", "दोस्त को जन्मदिन का मैसेज लिखो", "आज कुछ नया सीखना है, बताओ"];
+
+function bubble(role, text) {
+  const d = document.createElement("div");
+  d.className = "m " + (role === "user" ? "u" : "b");
+  d.textContent = text;
+  chat.appendChild(d);
+  return d;
+}
+function render() {
+  chat.textContent = "";
+  if (!hist.length) {
+    const h = document.createElement("div");
+    h.className = "hello";
+    const t = document.createElement("h2"); t.textContent = "नमस्ते Karan!";
+    const p = document.createElement("p"); p.textContent = "जो भी काम हो, बोलो या लिखो। मैं तैयार हूँ।";
+    const c = document.createElement("div"); c.className = "chips";
+    CHIPS.forEach(s => {
+      const b = document.createElement("button"); b.className = "chip"; b.textContent = s;
+      b.onclick = () => send(s); c.appendChild(b);
+    });
+    h.append(t, p, c); chat.appendChild(h);
+  } else hist.forEach(m => bubble(m.role, m.text));
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function speak(t) {
+  try {
+    if (!speakOn || !window.speechSynthesis) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(t); u.lang = "hi-IN";
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+async function send(text) {
+  text = (text || "").trim();
+  if (!text || busy) return;
+  busy = true; go.disabled = true; inp.value = "";
+  hist.push({ role: "user", text });
+  render();
+  const out = bubble("assistant", "सोच रहा हूँ…");
+  try {
+    if (!sample) sample = await claude.use("sample");
+    if (!sample) throw { code: "none" };
+    let msgs = hist.slice(-20).map(m => ({ role: m.role, content: m.text }));
+    while (msgs.length && msgs[0].role !== "user") msgs.shift();
+    msgs[0].content = SYS + "\n\n" + msgs[0].content;
+    const r = await sample(msgs, {
+      cache: false,
+      onText: ({ text }) => { out.textContent = text; chat.scrollTop = chat.scrollHeight; }
+    });
+    const ans = (r && r.text) || out.textContent;
+    out.textContent = ans;
+    hist.push({ role: "assistant", text: ans });
+    save(); speak(ans);
+  } catch (e) {
+    hist.pop();
+    out.textContent = (e && e.code === "rate_limited")
+      ? "थोड़ा रुको भाई, अभी बहुत रिक्वेस्ट हो गईं। थोड़ी देर बाद फिर कोशिश करो।"
+      : "जवाब नहीं आ पाया। इंटरनेट देखो और फिर भेजो। अगर परमिशन माँगे तो Allow करना।";
+  }
+  busy = false; go.disabled = false; chat.scrollTop = chat.scrollHeight;
+}
+
+go.onclick = () => send(inp.value);
+inp.addEventListener("keydown", e => { if (e.key === "Enter") send(inp.value); });
+clr.onclick = () => { hist = []; save(); try { speechSynthesis.cancel(); } catch (e) {} render(); };
+ttsBtn.onclick = () => {
+  speakOn = !speakOn;
+  ttsBtn.classList.toggle("on", speakOn);
+  ttsBtn.textContent = speakOn ? "🔊" : "🔈";
+  if (!speakOn) { try { speechSynthesis.cancel(); } catch (e) {} }
+};
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (!SR) { mic.style.display = "none"; } else {
+  let rec = null;
+  mic.onclick = () => {
+    try {
+      if (rec) { rec.stop(); return; }
+      rec = new SR(); rec.lang = "hi-IN"; rec.interimResults = true;
+      rec.onresult = e => {
+        let t = ""; for (const r of e.results) t += r[0].transcript;
+        inp.value = t;
+        if (e.results[e.results.length - 1].isFinal) send(t);
+      };
+      rec.onend = () => { rec = null; mic.classList.remove("rec"); };
+      rec.onerror = () => { rec = null; mic.classList.remove("rec"); mic.style.display = "none"; };
+      rec.start(); mic.classList.add("rec");
+    } catch (e) { rec = null; mic.style.display = "none"; }
+  };
+}
+render();
+</script>
+</body>
+</html>
